@@ -1,6 +1,8 @@
 package mycache
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -54,9 +56,26 @@ func (httpPool *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(value + "\n"))
-	} else if r.Method == "POST" {
-		parts := strings.SplitN(r.URL.Path[len(httpPool.baseUrl):], "/", 3)
-		if len(parts) != 3 {
+
+	} else if r.Method == "PUT" {
+		dbNumber, err := strconv.Atoi(r.URL.Path[len(httpPool.baseUrl):])
+		if err != nil {
+			http.Error(w, "bad request", http.StatusBadRequest)
+			return
+		}
+		defer r.Body.Close()
+		content, _ := ioutil.ReadAll(r.Body)
+		var entries map[string]string
+		json.Unmarshal(content, &entries)
+
+		db := NewDatabase(int8(dbNumber), 100)
+		for key, value := range entries {
+			db.Put(key, value)
+		}
+
+	} else if r.Method == "DELETE" {
+		parts := strings.SplitN(r.URL.Path[len(httpPool.baseUrl):], "/", 2)
+		if len(parts) != 2 {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
@@ -66,14 +85,12 @@ func (httpPool *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		key := parts[1]
-		value := parts[2]
 
-		db := NewDatabase(int8(dbNumber), 100)
-		db.Put(key, value)
-
-		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte(value + "\n"))
-	} else if r.Method == "DELETE" {
+		db := GetDatabase(int8(dbNumber))
+		if db == nil {
+			http.Error(w, "key not found", http.StatusNotFound)
+			return
+		}
 
 	} else if r.Method == "HEAD" {
 

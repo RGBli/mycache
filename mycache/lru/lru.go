@@ -17,7 +17,7 @@ type entry struct {
 	value string
 }
 
-// NewCache 用于创建一个 Cache 实例
+// 用于创建一个 Cache 实例
 func NewCache(maxCapacity int) *Cache {
 	if maxCapacity > 0 {
 		return &Cache{
@@ -29,7 +29,7 @@ func NewCache(maxCapacity int) *Cache {
 	return nil
 }
 
-// Put 用于添加一个 key-value 对到 Cache 中
+// 用于添加一个 key-value 对到 Cache 中
 func (lruCache *Cache) Put(key, value string) {
 	if ele, ok := lruCache.cache[key]; ok {
 		lruCache.list.MoveToFront(ele)
@@ -45,7 +45,7 @@ func (lruCache *Cache) Put(key, value string) {
 	}
 }
 
-// Get 用于从 Cache 中获取指定 key 的 value
+// 用于从 Cache 中获取指定 key 的 value
 func (lruCache *Cache) Get(key string) (value string, ok bool) {
 	if ele, ok := lruCache.cache[key]; ok {
 		return ele.Value.(*entry).value, ok
