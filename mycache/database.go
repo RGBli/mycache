@@ -2,6 +2,7 @@ package mycache
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -10,6 +11,7 @@ import (
 type Database struct {
 	number    int8
 	mainCache *cache
+	peers     PeerPicker
 }
 
 var (
@@ -46,7 +48,33 @@ func (db *Database) Get(key string) (ByteView, error) {
 		fmt.Println("[mycache] hit")
 		return value, nil
 	}
+	if db.peers != nil {
+		if peer, ok := db.peers.PickPeer(key); ok {
+			value, err := db.getFromPeer(peer, key)
+			if err == nil {
+				return value, nil
+			}
+			log.Println("[GeeCache] Failed to get from peer", err)
+		}
+	}
 	return ByteView{}, nil
+}
+
+func (db *Database) RegisterPeers(peers PeerPicker) {
+	if db.peers != nil {
+		panic("RegisterPeerPicker called more than once")
+	}
+	db.peers = peers
+}
+
+func (db *Database) getFromPeer(peer PeerGetter, key string) (ByteView, error) {
+	bytes, err := peer.Get(uint8(db.number), key)
+	if err != nil {
+		return ByteView{}, err
+	}
+	value := ByteView{bytes: bytes}
+	db.Put(key, value)
+	return value, nil
 }
 
 // 向指定数据库插入 key-value 对
