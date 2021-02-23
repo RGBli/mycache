@@ -8,7 +8,8 @@ import (
 
 type Hash func(data []byte) uint32
 
-type Map struct {
+// 存放所有经过 hash 的 key
+type HashMap struct {
 	// 哈希函数
 	hash Hash
 	// 每个真实节点对应的虚拟节点的数量
@@ -19,8 +20,9 @@ type Map struct {
 	hashMap map[int]string
 }
 
-func NewMap(replicas int, fn Hash) *Map {
-	m := &Map{
+// 创建新的 HashMap
+func NewMap(replicas int, fn Hash) *HashMap {
+	m := &HashMap{
 		hash:     fn,
 		replicas: replicas,
 		hashMap:  make(map[int]string),
@@ -32,19 +34,19 @@ func NewMap(replicas int, fn Hash) *Map {
 }
 
 // 添加真实节点
-func (m *Map) AddKeys(keys ...string) {
-	for _, key := range keys {
+func (m *HashMap) AddNodes(nodes ...string) {
+	for _, node := range nodes {
 		for i := 0; i < m.replicas; i++ {
-			hashValue := int(m.hash([]byte(strconv.Itoa(i) + key)))
+			hashValue := int(m.hash([]byte(strconv.Itoa(i) + node)))
 			m.keys = append(m.keys, hashValue)
-			m.hashMap[hashValue] = key
+			m.hashMap[hashValue] = node
 		}
 	}
 	sort.Ints(m.keys)
 }
 
 // 获取 key 对应的真实节点
-func (m *Map) Get(key string) string {
+func (m *HashMap) Get(key string) string {
 	if len(m.keys) == 0 {
 		return ""
 	}

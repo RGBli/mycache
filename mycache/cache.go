@@ -13,6 +13,7 @@ type cache struct {
 	maxBytes int64
 }
 
+// 添加 k-v 对
 func (cache *cache) put(key string, value ByteView) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
@@ -22,19 +23,20 @@ func (cache *cache) put(key string, value ByteView) {
 	cache.lru.Put(key, value)
 }
 
+// 获取值
 func (cache *cache) get(key string) (value ByteView, ok bool) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	if cache.lru == nil {
 		return
 	}
-
 	if v, ok := cache.lru.Get(key); ok {
 		return v.(ByteView), ok
 	}
 	return
 }
 
+// 删除 k-v 对
 func (cache *cache) delete(key string) {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
@@ -43,7 +45,8 @@ func (cache *cache) delete(key string) {
 	}
 }
 
-func (cache *cache) isExists(key string) bool {
+// 判断 k-v 对是否存在
+func (cache *cache) exists(key string) bool {
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 	if cache.lru != nil {

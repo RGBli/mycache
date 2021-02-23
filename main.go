@@ -2,59 +2,84 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	"log"
 	"mycache"
 	"net/http"
+	"strconv"
+	"strings"
 )
 
-func startCacheServer(thisHost string, peerHosts []string, db *mycache.Database) {
-	peers := mycache.NewHTTPPool(thisHost)
-	peers.Set(peerHosts...)
-	db.RegisterPeers(peers)
-	log.Println("mycache is running at", thisHost)
-	log.Fatal(http.ListenAndServe(thisHost[7:], peers))
+// 声明配置参数
+var (
+	port     string
+	peers    []string
+	dbNames  []string
+	maxBytes int64
+)
+
+const localPrefix = "127.0.0.1:"
+
+// 初始化参数
+func initPara(path string) {
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		panic("Invalid cfg file path")
+	}
+	s := string(bytes)
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		lineSplit := resolveLine(line)
+		switch lineSplit[0] {
+		case "port":
+			port = lineSplit[1]
+		case "peers":
+			peers = lineSplit[1:]
+		case "dbNames":
+			dbNames = lineSplit[1:]
+		case "maxBytes":
+			v := lineSplit[1]
+			maxBytes, err = strconv.ParseInt(v[:len(v)-2], 10, 64)
+			if err != nil {
+				panic("There are format errors in cfg file maxBytes line")
+			}
+			if strings.HasSuffix(v, "kb") {
+				maxBytes *= 1 << 10
+			} else if strings.HasSuffix(v, "mb") {
+				maxBytes *= 1 << 20
+			} else if strings.HasSuffix(v, "gb") {
+				maxBytes *= 1 << 30
+			}
+		}
+	}
 }
 
-func startAPIServer(apiHost string, db *mycache.Database) {
-	http.Handle("/api", http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			key := r.URL.Query().Get("key")
-			value, err := db.Get(key)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.Header().Set("Content-Type", "text/plain;charset=utf-8")
-			w.Write(value.ByteSlice())
+func resolveLine(line string) []string {
+	parts := strings.Split(line, " ")
+	if len(parts) == 1 {
+		panic("There are format errors in cfg file")
+	}
+	return parts
+}
 
-		}))
-	log.Println("fontend server is running at", apiHost)
-	log.Fatal(http.ListenAndServe(apiHost[7:], nil))
+// 启动 cache server
+func startCacheServer(port string) {
+	server := mycache.NewServer(localPrefix+port, peers)
+	server.SetPeers(peers)
+	for i := 0; i < len(dbNames); i++ {
+		server.NewDatabase(dbNames[i], maxBytes)
+	}
+	log.Println("MyCache is running at", localPrefix+port)
+	log.Fatal(http.ListenAndServe(localPrefix+port, server))
 }
 
 func main() {
-	var port int
-	var api bool
-	flag.IntVar(&port, "port", 8001, "Geecache server port")
-	flag.BoolVar(&api, "api", false, "Start a api server")
+	var cfgFilePath string
+	flag.StringVar(&cfgFilePath, "cfg", "config.cfg", "Configuration file path")
 	flag.Parse()
-
-	apiHost := "http://localhost:9999"
-	hostMap := map[int]string{
-		8001: "http://localhost:8001",
-		8002: "http://localhost:8002",
-		8003: "http://localhost:8003",
-	}
-
-	var hosts []string
-	for _, v := range hostMap {
-		hosts = append(hosts, v)
-	}
-
-	// maxBytes = (1 << 10) B = 1MB
-	db := mycache.NewDatabase(1, 1<<10)
-	if api {
-		go startAPIServer(apiHost, db)
-	}
-	startCacheServer(hostMap[port], hosts, db)
+	initPara(cfgFilePath)
+	startCacheServer(port)
 }

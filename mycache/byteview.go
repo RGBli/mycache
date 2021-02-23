@@ -1,6 +1,6 @@
 package mycache
 
-/*ByteView 只有一个数据成员，`bytes []byte`
+/*ByteView 只有一个数据成员，bytes []byte
 * bytes 将会存储真实的缓存值
 * 选择 byte 类型是为了能够支持任意的数据类型的存储，例如字符串、图片等*/
 type ByteView struct {

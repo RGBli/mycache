@@ -1,2 +1,2 @@
-# mycache
-A distributed cache implemented in golang based on RESTful API
+# MyCache
+MyCache is a distributed cache implemented in golang based on REST API
